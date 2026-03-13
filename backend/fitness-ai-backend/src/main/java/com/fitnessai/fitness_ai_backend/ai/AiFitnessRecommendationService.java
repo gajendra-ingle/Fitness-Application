@@ -17,34 +17,15 @@ import org.springframework.stereotype.Service;
 
 import java.util.Map;
 
-/**
- * AiFitnessRecommendationService
- *
- * Replaced the hard-coded switch/case logic with real OpenAI GPT-4o calls
- * via Spring AI's ChatClient abstraction.
- *
- * Strategy:
- *   1.  Build a rich, data-filled system + user prompt from the UserProfile.
- *   2.  Ask the model to respond ONLY with a single valid JSON object
- *       matching our existing WorkoutPlanResponse / DietPlanResponse shape.
- *   3.  Deserialise the JSON back into the response objects so the rest of
- *       the application (controller, frontend) is completely unchanged.
- *
- * The existing WorkoutPlanResponse and DietPlanResponse DTOs are untouched —
- * only this service file changes.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiFitnessRecommendationService {
 
     private final UserProfileRepository profileRepository;
-    private final ChatClient chatClient;           // auto-configured by Spring AI
-    private final ObjectMapper objectMapper;       // Spring Boot auto-configures this too
+    private final ChatClient chatClient;
+    private final ObjectMapper objectMapper;
 
-
-//     Public API — same signatures as before, zero changes needed
-//                in AiController or anywhere else.
 
     public WorkoutPlanResponse generateWorkoutPlan(Long userId) {
         UserProfile profile = fetchProfile(userId);
@@ -55,12 +36,6 @@ public class AiFitnessRecommendationService {
 
     public DietPlanResponse generateDietPlan(Long userId) {
         UserProfile profile = fetchProfile(userId);
-
-        /*
-              We still calculate BMR / TDEE / macros ourselves and
-              pass the results into the prompt so
-              the model has accurate numbers to build a meal plan around.
-         */
         NutritionContext ctx = buildNutritionContext(profile);
         String prompt = buildDietPrompt(profile, ctx);
         String json   = callOpenAi(prompt);
@@ -211,12 +186,9 @@ public class AiFitnessRecommendationService {
         return response;
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // JSON deserialisation
-    // ──────────────────────────────────────────────────────────────
+
 
     private <T> T deserialise(String json, Class<T> type) {
-        // Strip accidental markdown fences the model may still add
         String cleaned = json
                 .replaceAll("(?s)```json\\s*", "")
                 .replaceAll("(?s)```\\s*", "")
